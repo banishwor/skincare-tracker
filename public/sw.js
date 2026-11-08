@@ -1,4 +1,9 @@
-const CACHE_NAME = 'skin-routine-pwa-v1';
+// The version placeholder in the cache name below is replaced with the
+// package version at build time (see the stamp-sw-version plugin in
+// vite.config.ts), so every release produces a byte-different sw.js and
+// the browser registers the update — the waiting-worker → in-app banner
+// flow depends on it.
+const CACHE_NAME = 'skin-routine-pwa-__APP_VERSION__';
 
 // Dynamically compute the base path where this service worker is located (supports GitHub Pages subpaths!)
 const BASE_PATH = self.location.pathname.substring(

@@ -191,7 +191,7 @@ export default function SettingsScreen({ settings, onSaved, onImported, onBack }
       </div>
 
       {msg && <div className="foot" style={{ color: 'var(--blue)', fontWeight: 600 }}>{msg}</div>}
-      <div className="foot">Skin Routine v0.1.0 · all data stays on this device</div>
+      <div className="foot">Skin Routine v0.1.1 · all data stays on this device</div>
     </section>
   );
 }
