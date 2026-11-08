@@ -3,7 +3,9 @@
   --blue: #007aff;
   --ink: #000;
   --grey: #6e6e73;
-  --faint: #aeaeb2;
+  /* Was #aeaeb2 (≈2:1 — illegible at small sizes). #6e6e73 measures
+     5.07:1 on white cards and 4.54:1 on the --bg background (WCAG AA). */
+  --faint: #6e6e73;
   --hair: #e5e5ea;
   --card: #fff;
   --bg: #f2f2f7;
@@ -53,8 +55,9 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
   font-size: 10.5px; font-weight: 700;
 }
 /* checklist */
-.step { display: flex; align-items: flex-start; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--hair); }
+.step { display: flex; align-items: flex-start; gap: 10px; padding: 8px 14px; border-top: 1px solid var(--hair); min-height: 44px; }
 .step:first-of-type { border-top: 0; }
+.step.clickable { cursor: pointer; }
 .tick {
   width: 23px; height: 23px; border-radius: 50%; border: 2px solid #c7c7cc; flex: none; margin-top: 1px;
   display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12.5px;
@@ -177,7 +180,8 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
 }
 /* tab bar */
 .tabbar {
-  position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; width: min(398px, calc(100% - 32px));
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: min(398px, calc(100% - 32px));
   background: rgba(255, 255, 255, .82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(0, 0, 0, .06); border-radius: 26px; display: flex; padding: 8px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, .13); z-index: 10;
@@ -214,7 +218,8 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
 .set-label { font-size: 14.5px; font-weight: 600; flex: 1; }
 .set-sub { font-size: 12px; color: var(--grey); margin-top: 1px; line-height: 1.35; }
 .text-input, .time-input, select.text-input {
-  font: inherit; font-size: 14.5px; padding: 8px 10px; border: 1px solid var(--hair);
+  /* 16px minimum: below this, iOS Safari auto-zooms on focus. */
+  font: inherit; font-size: 16px; padding: 8px 10px; border: 1px solid var(--hair);
   border-radius: 10px; background: #fff; color: var(--ink); min-width: 0;
 }
 .text-input:focus, .time-input:focus { outline: 2px solid #cfe6ff; border-color: var(--blue); }
@@ -243,3 +248,5 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
   border: 0; font-family: inherit; text-align: left;
 }
 .loading { text-align: center; color: var(--grey); font-size: 14px; padding: 60px 0; }
+/* visible keyboard focus everywhere (inputs keep their softer :focus ring) */
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

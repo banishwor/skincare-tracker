@@ -119,11 +119,18 @@ export default function TodayScreen(props: Props) {
             const state = blockLog?.steps[step.id];
             const cls = state === 'done' ? ' done' : state === 'skipped' ? ' skipped' : state === 'missed' ? ' missed' : '';
             return (
-              <div key={step.id} className={`step${cls}`}>
+              <div
+                key={step.id}
+                className={`step clickable${cls}`}
+                onClick={() => props.onToggleStep(current, step)}
+              >
                 <button
                   className="tick"
                   aria-label={`Toggle ${step.name}`}
-                  onClick={() => props.onToggleStep(current, step)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.onToggleStep(current, step);
+                  }}
                 >
                   {state === 'done' ? '✓' : state === 'skipped' ? '–' : state === 'missed' ? '✕' : ''}
                 </button>
@@ -134,7 +141,13 @@ export default function TodayScreen(props: Props) {
                   </div>
                   {step.note && <div className="s-note">{step.note}</div>}
                   {step.skippable && !state && (
-                    <button className="skipbtn" onClick={() => props.onSkipStep(current, step)}>
+                    <button
+                      className="skipbtn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        props.onSkipStep(current, step);
+                      }}
+                    >
                       {step.id === 'niacinamide' ? 'Skip — don’t have it yet' : 'Skip'}
                     </button>
                   )}
