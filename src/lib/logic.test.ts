@@ -12,6 +12,7 @@ import {
   isTxaNight,
   makeDayEvaluator,
   pendingSteps,
+  stepGateState,
   tonerProductOn,
   txaApplies,
 } from './logic';
@@ -106,7 +107,8 @@ describe('seed-driven step derivation', () => {
     const c = { products: without, settings, dateKey: '2026-11-08', log: undefined };
     const toner = buildSteps('morning', c).find((s) => s.id === 'toner');
     expect(toner?.optional).toBe(true);
-    expect(toner?.note).toBe('PHA 3% not started yet');
+    // Generic slot-state text — never names a specific product.
+    expect(toner?.note).toBe('No toner in use — add or start one in Cabinet');
   });
   it('niacinamide step is optional with a to-buy chip while the product is queued', () => {
     const queued = products.map((p) =>
@@ -116,6 +118,41 @@ describe('seed-driven step derivation', () => {
     const nia = buildSteps('morning', c).find((s) => s.id === 'niacinamide');
     expect(nia?.optional).toBe(true);
     expect(nia?.chip).toBe('to buy');
+  });
+  it("gate state is 'absent' once niacinamide is finished with nothing queued", () => {
+    const finished = products.map((p) =>
+      p.id === 'p-nia' ? { ...p, status: 'finished' as const, finishedOn: '2026-11-20' } : p,
+    );
+    expect(stepGateState(finished, 'niacinamide', '2026-11-21')).toBe('absent');
+    expect(stepGateState(finished, 'niacinamide', '2026-11-19')).toBe('using');
+    expect(stepGateState(products, 'niacinamide', '2026-11-08')).toBe('using');
+  });
+  it("an 'absent' niacinamide step is optional and never blocks Morning completion", () => {
+    const finished = products.map((p) =>
+      p.id === 'p-nia' ? { ...p, status: 'finished' as const, finishedOn: '2026-11-20' } : p,
+    );
+    const c = { products: finished, settings, dateKey: '2026-11-21', log: undefined };
+    const nia = buildSteps('morning', c).find((s) => s.id === 'niacinamide');
+    expect(nia?.optional).toBe(true);
+    expect(nia?.chip).toBeUndefined();
+    expect(nia?.note).toBe('Add it in Cabinet when you buy it');
+    // Morning completes with every owned step done and niacinamide untouched.
+    const log = fullLog('2026-11-21');
+    delete log.blocks.morning.steps['niacinamide'];
+    const withLog = { ...c, log };
+    expect(blockComplete('morning', log, withLog)).toBe(true);
+    // …and catch-up never chases it.
+    expect(pendingSteps('morning', log, withLog).map((s) => s.id)).not.toContain('niacinamide');
+  });
+  it("an empty toner slot (current toner finished, nothing queued) stays optional", () => {
+    const finished = products.map((p) =>
+      p.id === 'p-pha' ? { ...p, status: 'finished' as const, finishedOn: '2026-12-01' } : p,
+    );
+    const c = { products: finished, settings, dateKey: '2026-12-02', log: undefined };
+    expect(tonerProductOn(finished, '2026-12-02')).toBeNull();
+    const toner = buildSteps('night', c).find((s) => s.id === 'toner');
+    expect(toner?.optional).toBe(true);
+    expect(toner?.note).toBe('No toner in use — add or start one in Cabinet');
   });
   it('before PHA started, the Plum toner filled the slot (until its finish date)', () => {
     expect(tonerProductOn(products, '2026-11-01')?.id).toBe('p-plum');

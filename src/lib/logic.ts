@@ -120,7 +120,7 @@ function tonerStep(ctx: StepContext): StepDef {
   return {
     id: 'toner',
     name: 'Toner',
-    note: 'PHA 3% not started yet',
+    note: 'No toner in use — add or start one in Cabinet',
     optional: true,
     kind: 'check',
     skippable: true,
@@ -143,13 +143,24 @@ export function buildSteps(block: BlockId, ctx: StepContext): StepDef[] {
             kind: 'check',
             skippable: true,
           }
-        : {
-            id: 'niacinamide',
-            name: 'Niacinamide 10% Serum',
-            note: 'Oil control + brightening',
-            optional: false,
-            kind: 'check',
-          },
+        : nia === 'absent'
+          ? {
+              // Product finished (or never added) with nothing queued: the step
+              // must stay optional forever — it can never block completion.
+              id: 'niacinamide',
+              name: 'Niacinamide 10% Serum',
+              note: 'Add it in Cabinet when you buy it',
+              optional: true,
+              kind: 'check',
+              skippable: true,
+            }
+          : {
+              id: 'niacinamide',
+              name: 'Niacinamide 10% Serum',
+              note: 'Oil control + brightening',
+              optional: false,
+              kind: 'check',
+            },
       { id: 'vitC', name: 'Minimalist Vitamin C Serum', optional: false, kind: 'check' },
       {
         id: 'moisturizer',
