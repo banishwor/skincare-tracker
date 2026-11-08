@@ -258,14 +258,60 @@ describe('catch-up', () => {
   });
   it('does not ask about the current or future blocks', () => {
     const log = emptyDayLog('2026-11-08');
-    expect(catchUpCandidate(log, '2026-11-08', 'morning', { products, settings })).toBeNull();
+    // Yesterday fully done, so during Morning there is nothing to chase.
+    expect(
+      catchUpCandidate(log, '2026-11-08', 'morning', { products, settings }, fullLog('2026-11-07')),
+    ).toBeNull();
     const c = catchUpCandidate(log, '2026-11-08', 'backHome', { products, settings });
     expect(c?.block).toBe('morning');
+    expect(c?.date).toBe('2026-11-08');
   });
   it('with no log at all, every step of passed blocks is pending', () => {
     const c = catchUpCandidate(undefined, '2026-11-08', 'backHome', { products, settings });
     expect(c?.block).toBe('morning');
     expect(pendingSteps('morning', undefined, ctx()).length).toBeGreaterThan(0);
+  });
+});
+
+describe("catch-up: yesterday's Night", () => {
+  it("during Morning, asks about yesterday's unresolved Night first", () => {
+    const yLog = emptyDayLog('2026-11-07');
+    yLog.blocks.night.steps = { faceWash: 'done' }; // rest of Saturday night pending
+    const c = catchUpCandidate(
+      emptyDayLog('2026-11-08'), '2026-11-08', 'morning', { products, settings }, yLog,
+    );
+    expect(c?.date).toBe('2026-11-07');
+    expect(c?.block).toBe('night');
+    expect(c?.pendingNames).toContain('Toner');
+  });
+  it("with no yesterday log at all, yesterday's Night counts as fully pending", () => {
+    const c = catchUpCandidate(
+      emptyDayLog('2026-11-08'), '2026-11-08', 'morning', { products, settings }, undefined,
+    );
+    expect(c?.date).toBe('2026-11-07');
+    expect(c?.block).toBe('night');
+  });
+  it("does not ask when yesterday's Night was completed or already resolved", () => {
+    const today = emptyDayLog('2026-11-08');
+    expect(
+      catchUpCandidate(today, '2026-11-08', 'morning', { products, settings }, fullLog('2026-11-07')),
+    ).toBeNull();
+    const resolved = emptyDayLog('2026-11-07');
+    resolved.blocks.night.catchUpResolved = true;
+    expect(
+      catchUpCandidate(today, '2026-11-08', 'morning', { products, settings }, resolved),
+    ).toBeNull();
+    const missed = emptyDayLog('2026-11-07');
+    missed.blocks.night.missed = true;
+    expect(
+      catchUpCandidate(today, '2026-11-08', 'morning', { products, settings }, missed),
+    ).toBeNull();
+  });
+  it("yesterday's Night is only chased during Morning, not in later blocks", () => {
+    const yLog = emptyDayLog('2026-11-07'); // night fully pending
+    const todayFull = fullLog('2026-11-08');
+    expect(catchUpCandidate(todayFull, '2026-11-08', 'backHome', { products, settings }, yLog)).toBeNull();
+    expect(catchUpCandidate(todayFull, '2026-11-08', 'night', { products, settings }, yLog)).toBeNull();
   });
 });
 

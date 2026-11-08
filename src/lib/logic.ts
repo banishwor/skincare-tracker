@@ -276,6 +276,8 @@ export function resolvedCount(block: BlockId, log: DayLog | undefined, ctx: Step
 /* ------------------------------------------------------------------ */
 
 export interface CatchUpCandidate {
+  /** Routine-day date key the pending block belongs to. */
+  date: string;
   block: BlockId;
   pendingNames: string[];
 }
@@ -285,33 +287,43 @@ export function windowPassed(block: BlockId, current: BlockId): boolean {
   return BLOCK_ORDER.indexOf(block) < BLOCK_ORDER.indexOf(current);
 }
 
+function candidateForBlock(
+  log: DayLog | undefined,
+  dateKey: string,
+  block: BlockId,
+  baseCtx: Omit<StepContext, 'log' | 'dateKey'>,
+): CatchUpCandidate | null {
+  const blockLog = log?.blocks[block];
+  if (blockLog?.catchUpResolved || blockLog?.missed) return null;
+  // No log (or no record) for the block: every non-optional step is pending.
+  const ctx: StepContext = { ...baseCtx, dateKey, log };
+  const pending = pendingSteps(block, log, ctx);
+  if (pending.length === 0) return null;
+  return { date: dateKey, block, pendingNames: pending.map((s) => s.name) };
+}
+
 /**
- * The earliest block of the routine day whose window has passed, that still
- * has pending steps and whose catch-up question hasn't been resolved.
+ * The earliest unresolved catch-up question, if any. Yesterday's Night is
+ * the earliest business of all, but it is only chased while the current
+ * block is this Morning — after that, the day has moved on. Otherwise:
+ * the earliest block of the routine day whose window has passed, that
+ * still has pending non-optional steps and wasn't resolved.
  */
 export function catchUpCandidate(
   log: DayLog | undefined,
   logDate: string,
   current: BlockId,
   baseCtx: Omit<StepContext, 'log' | 'dateKey'>,
+  yesterdayLog?: DayLog,
 ): CatchUpCandidate | null {
+  if (current === 'morning') {
+    const y = candidateForBlock(yesterdayLog, addDays(logDate, -1), 'night', baseCtx);
+    if (y) return y;
+  }
   for (const block of BLOCK_ORDER) {
     if (!windowPassed(block, current)) continue;
-    const blockLog = log?.blocks[block];
-    if (!blockLog || blockLog.catchUpResolved || blockLog.missed) {
-      if (!blockLog) {
-        // No log at all for the block: every step is pending.
-        const ctx: StepContext = { ...baseCtx, dateKey: logDate, log };
-        const pending = pendingSteps(block, log, ctx);
-        if (pending.length > 0) return { block, pendingNames: pending.map((s) => s.name) };
-      }
-      continue;
-    }
-    const ctx: StepContext = { ...baseCtx, dateKey: logDate, log };
-    const pending = pendingSteps(block, log, ctx);
-    if (pending.length > 0) {
-      return { block, pendingNames: pending.map((s) => s.name) };
-    }
+    const c = candidateForBlock(log, logDate, block, baseCtx);
+    if (c) return c;
   }
   return null;
 }

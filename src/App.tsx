@@ -14,9 +14,10 @@ import {
   currentBlock,
   currentStreak,
   makeDayEvaluator,
+  pendingSteps,
   type CatchUpCandidate,
 } from './lib/logic';
-import { todayKey } from './lib/dates';
+import { addDays, todayKey } from './lib/dates';
 import TodayScreen from './components/TodayScreen';
 import CabinetScreen from './components/CabinetScreen';
 import HistoryScreen from './components/HistoryScreen';
@@ -33,7 +34,11 @@ export default function App() {
   const [logs, setLogs] = useState<Map<string, DayLog>>(new Map());
   const [now, setNow] = useState(() => new Date());
   const [catchUp, setCatchUp] = useState<CatchUpCandidate | null>(null);
-  const catchUpShownRef = useRef(false);
+  // Catch-up is shown at most once per "occasion": an occasion is the
+  // routine day + a foregrounding counter, so the question re-arms when
+  // the routine day rolls over or the app comes back to the foreground.
+  const [catchUpSession, setCatchUpSession] = useState(0);
+  const catchUpShownKeyRef = useRef<string | null>(null);
   const [updateReady, setUpdateReady] = useState(false);
 
   const reloadAll = useCallback(async () => {
@@ -50,15 +55,22 @@ export default function App() {
   }, [reloadAll]);
 
   // Keep "now" fresh so the current block flips at block boundaries.
+  // Returning to the foreground also re-arms the catch-up question.
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000);
     const onVis = () => {
-      if (document.visibilityState === 'visible') setNow(new Date());
+      if (document.visibilityState === 'visible') {
+        setNow(new Date());
+        setCatchUpSession((s) => s + 1);
+      }
     };
+    const onFocus = () => setCatchUpSession((s) => s + 1);
     document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onFocus);
     return () => {
       clearInterval(t);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onFocus);
     };
   }, []);
 
@@ -95,17 +107,20 @@ export default function App() {
   const cur = settings ? currentBlock(now, settings) : null;
   const logDate = cur?.logDate ?? todayKey(now);
   const log = logs.get(logDate);
+  const yesterdayLog = logs.get(addDays(logDate, -1));
 
-  // Catch-up: ask once per app open, for the earliest passed block with pending steps.
+  // Catch-up: at most once per occasion (routine day + foregrounding).
   useEffect(() => {
     if (!ready || !settings || !cur || view !== 'today') return;
-    if (catchUpShownRef.current || catchUp) return;
-    const candidate = catchUpCandidate(log, logDate, cur.block, { products, settings });
+    if (catchUp) return;
+    const key = `${logDate}#${catchUpSession}`;
+    if (catchUpShownKeyRef.current === key) return;
+    const candidate = catchUpCandidate(log, logDate, cur.block, { products, settings }, yesterdayLog);
     if (candidate) {
-      catchUpShownRef.current = true;
+      catchUpShownKeyRef.current = key;
       setCatchUp(candidate);
     }
-  }, [ready, settings, cur, view, log, logDate, products, catchUp]);
+  }, [ready, settings, cur, view, log, yesterdayLog, logDate, products, catchUp, catchUpSession]);
 
   const streak = useMemo(() => {
     if (!settings) return 0;
@@ -153,15 +168,13 @@ export default function App() {
 
   const handleCatchUpYes = () => {
     if (!catchUp) return;
-    const block = catchUp.block;
-    void mutateLog(logDate, (l) => {
-      const ctx = { products, settings, dateKey: logDate, log: l };
-      for (const step of buildSteps(block, ctx)) {
-        if (step.kind === 'either') {
-          if (!l.blocks[block].eitherChoice) l.blocks[block].eitherChoice = 'moisturizer';
-        } else if (!l.blocks[block].steps[step.id]) {
-          l.blocks[block].steps[step.id] = 'done';
-        }
+    const { date, block } = catchUp;
+    void mutateLog(date, (l) => {
+      const ctx = { products, settings, dateKey: date, log: l };
+      // Mark exactly the pending non-optional check steps the popup named —
+      // never optional steps, and never invent an either/or choice.
+      for (const step of pendingSteps(block, l, ctx)) {
+        if (step.kind === 'check') l.blocks[block].steps[step.id] = 'done';
       }
       l.blocks[block].catchUpResolved = true;
       return l;
@@ -171,9 +184,9 @@ export default function App() {
 
   const handleCatchUpMissed = () => {
     if (!catchUp) return;
-    const block = catchUp.block;
-    void mutateLog(logDate, (l) => {
-      const ctx = { products, settings, dateKey: logDate, log: l };
+    const { date, block } = catchUp;
+    void mutateLog(date, (l) => {
+      const ctx = { products, settings, dateKey: date, log: l };
       for (const step of buildSteps(block, ctx)) {
         if (step.kind === 'check' && !l.blocks[block].steps[step.id]) {
           l.blocks[block].steps[step.id] = 'missed';
@@ -259,7 +272,7 @@ export default function App() {
           settings={settings}
           onSaved={(s) => setSettings(s)}
           onImported={() => {
-            catchUpShownRef.current = false;
+            catchUpShownKeyRef.current = null;
             void reloadAll().then(() => setView('today'));
           }}
           onBack={() => setView('today')}
