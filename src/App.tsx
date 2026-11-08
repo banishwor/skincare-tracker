@@ -26,6 +26,35 @@ import CatchupModal from './components/CatchupModal';
 
 type View = 'today' | 'cabinet' | 'history' | 'settings';
 
+/* Tab-bar line icons: one consistent stroke style, coloured via currentColor. */
+function SunIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
+  );
+}
+
+function BottleIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M10 2h4" />
+      <path d="M10 2v3.2c0 .5-.2 1-.6 1.4C8.5 7.5 8 8.6 8 10v9a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-9c0-1.4-.5-2.5-1.4-3.4-.4-.4-.6-.9-.6-1.4V2" />
+      <path d="M8 14h8" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<View>('today');
@@ -288,13 +317,13 @@ export default function App() {
       {view !== 'settings' && (
         <nav className="tabbar">
           <button className={view === 'today' ? 'on' : ''} onClick={() => setView('today')}>
-            <span className="ti">☀️</span>Today
+            <span className="ti"><SunIcon /></span>Today
           </button>
           <button className={view === 'cabinet' ? 'on' : ''} onClick={() => setView('cabinet')}>
-            <span className="ti">🧴</span>Cabinet
+            <span className="ti"><BottleIcon /></span>Cabinet
           </button>
           <button className={view === 'history' ? 'on' : ''} onClick={() => setView('history')}>
-            <span className="ti">📅</span>History
+            <span className="ti"><CalendarIcon /></span>History
           </button>
         </nav>
       )}

@@ -14,6 +14,12 @@ import {
   txaScheduleText,
 } from '../lib/logic';
 import { DAY_LETTERS, formatDateline, formatTime, weekdayMon0 } from '../lib/dates';
+import { stepDotColor } from '../lib/stepStyle';
+
+/** Decorative category dot before a step name — never conveys state. */
+function StepDot({ stepId }: { stepId: string }) {
+  return <span className="sdot" style={{ background: stepDotColor(stepId) }} aria-hidden="true" />;
+}
 
 interface Props {
   settings: Settings;
@@ -95,7 +101,7 @@ export default function TodayScreen(props: Props) {
                   <div className={`step${choice ? ' done' : ''}`}>
                     <div className="tick">{choice ? '✓' : ''}</div>
                     <div className="s-body">
-                      <div className="s-name">{step.name}</div>
+                      <div className="s-name"><StepDot stepId={step.id} />{step.name}</div>
                       {step.note && <div className="s-note">{step.note}</div>}
                     </div>
                   </div>
@@ -136,7 +142,7 @@ export default function TodayScreen(props: Props) {
                 </button>
                 <div className="s-body">
                   <div className="s-name">
-                    {step.name}
+                    <StepDot stepId={step.id} />{step.name}
                     {step.chip && <span className="chip buy">{step.chip}</span>}
                   </div>
                   {step.note && <div className="s-note">{step.note}</div>}

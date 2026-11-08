@@ -63,7 +63,20 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
   display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12.5px;
   color: #fff; background: #fff; padding: 0;
 }
-.step.done .tick { background: var(--blue); border-color: var(--blue); }
+.step.done .tick { background: var(--blue); border-color: var(--blue); animation: tick-pop .35s ease-out; }
+@keyframes tick-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step.done .tick { animation: none; }
+  .ring-fg { transition: none; }
+}
+.sdot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  margin-right: 7px; vertical-align: 1px; flex: none;
+}
 .step.done .s-name { color: var(--faint); text-decoration: line-through; }
 .step.skipped .tick { background: #fff; border-color: var(--hair); color: var(--faint); }
 .step.skipped .s-name { color: var(--faint); }
@@ -190,7 +203,8 @@ h1 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
   flex: 1; border: 0; background: transparent; font: inherit; cursor: pointer; padding: 7px 0 5px;
   border-radius: 18px; color: var(--grey); font-size: 11px; font-weight: 700;
 }
-.tabbar button .ti { display: block; font-size: 20px; line-height: 1.1; }
+.tabbar button .ti { display: flex; justify-content: center; line-height: 1.1; margin-bottom: 2px; }
+.tabbar button .ti svg { display: block; }
 .tabbar button.on { color: var(--blue); background: #eef4ff; }
 .foot { text-align: center; font-size: 11.5px; color: var(--faint); margin-top: 14px; }
 /* catch-up modal */
