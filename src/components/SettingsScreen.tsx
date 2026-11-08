@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { BlockId, Settings } from '../types';
 import { BLOCK_NAMES, BLOCK_ORDER, blockOrderError } from '../lib/logic';
 import { DAY_LETTERS } from '../lib/dates';
@@ -17,7 +17,30 @@ export default function SettingsScreen({ settings, onSaved, onImported, onBack }
   const [starts, setStarts] = useState<Record<BlockId, string>>(settings.blockStarts);
   const [msg, setMsg] = useState('');
   const [orderError, setOrderError] = useState('');
+  const [storageLine, setStorageLine] = useState('Storage: checking…');
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      let persisted = false;
+      try {
+        persisted = (await navigator.storage?.persisted?.()) ?? false;
+      } catch {
+        persisted = false;
+      }
+      if (alive) {
+        setStorageLine(
+          persisted
+            ? 'Storage: protected'
+            : 'Storage: best-effort — export a backup now and then',
+        );
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const toggleDay = (d: number) => {
     setTxaDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
@@ -137,6 +160,12 @@ export default function SettingsScreen({ settings, onSaved, onImported, onBack }
 
       <div className="group-title">Your data</div>
       <div className="card">
+        <div className="set-row">
+          <div className="s-body">
+            <div className="set-label">On-device storage</div>
+            <div className="set-sub">{storageLine}</div>
+          </div>
+        </div>
         <div className="set-row">
           <div className="s-body">
             <div className="set-label">Export backup</div>

@@ -52,6 +52,12 @@ export default function App() {
 
   useEffect(() => {
     void reloadAll();
+    // Ask the browser to exempt this origin's storage from eviction —
+    // without it, IndexedDB is only "best-effort" and can be cleared
+    // under storage pressure. Guarded for browsers without the API.
+    if (typeof navigator !== 'undefined' && navigator.storage?.persist) {
+      void navigator.storage.persist().catch(() => undefined);
+    }
   }, [reloadAll]);
 
   // Keep "now" fresh so the current block flips at block boundaries.
