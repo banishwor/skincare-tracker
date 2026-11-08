@@ -10,6 +10,7 @@ import {
   isBackupData,
   listProducts,
   saveDayLog,
+  updateDayLog,
 } from './db';
 import { emptyDayLog } from '../lib/logic';
 
@@ -54,6 +55,37 @@ describe('database', () => {
     await importAll(backup);
     expect((await getDayLog('2026-11-08'))?.blocks.morning.steps['sunscreen']).toBe('done');
     expect((await listProducts()).length).toBeGreaterThan(0);
+  });
+
+  it('updateDayLog composes concurrent mutations instead of overwriting', async () => {
+    await initDb();
+    // Two mutations fired "at once", each touching a different step.
+    await Promise.all([
+      updateDayLog('2026-11-08', [0, 1], (l) => {
+        l.blocks.morning.steps['sunscreen'] = 'done';
+        return l;
+      }),
+      updateDayLog('2026-11-08', [0, 1], (l) => {
+        l.blocks.morning.steps['vitC'] = 'done';
+        return l;
+      }),
+    ]);
+    const log = await getDayLog('2026-11-08');
+    expect(log?.blocks.morning.steps['sunscreen']).toBe('done');
+    expect(log?.blocks.morning.steps['vitC']).toBe('done');
+  });
+
+  it('updateDayLog snapshots TXA days at creation and keeps them afterwards', async () => {
+    await initDb();
+    const created = await updateDayLog('2026-11-08', [2], (l) => l);
+    expect(created.txaDays).toEqual([2]);
+    // A later mutation (even called with different days) must not rewrite it.
+    const again = await updateDayLog('2026-11-08', [0, 1, 3], (l) => {
+      l.blocks.night.steps['faceWash'] = 'done';
+      return l;
+    });
+    expect(again.txaDays).toEqual([2]);
+    expect((await getDayLog('2026-11-08'))?.txaDays).toEqual([2]);
   });
 
   it('rejects foreign JSON as a backup', () => {

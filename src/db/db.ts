@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie';
 import type { DayLog, Product, Settings } from '../types';
 import { DEFAULT_SETTINGS, seedProducts } from '../lib/seed';
+import { emptyDayLog } from '../lib/logic';
 import { todayKey } from '../lib/dates';
 
 interface SettingsRow extends Settings {
@@ -74,6 +75,31 @@ export async function getDayLog(date: string): Promise<DayLog | undefined> {
 
 export async function saveDayLog(log: DayLog): Promise<void> {
   await db.dayLogs.put(log);
+}
+
+/**
+ * Atomic read-modify-write of one day log. The read and the write happen
+ * inside a single IndexedDB read-write transaction, which the browser
+ * serializes against other transactions touching the same store — so a
+ * mutation from a second open tab (or one queued in this tab) composes
+ * with this one instead of silently overwriting it. A missing log is
+ * created on the spot, snapshotting `txaDays` (only at creation; an
+ * existing log keeps its original snapshot).
+ */
+export async function updateDayLog(
+  date: string,
+  txaDays: number[] | undefined,
+  fn: (log: DayLog) => DayLog,
+): Promise<DayLog> {
+  let result: DayLog | undefined;
+  await db.transaction('rw', db.dayLogs, async () => {
+    const existing = await db.dayLogs.get(date);
+    const base = existing ?? emptyDayLog(date, txaDays);
+    const next = fn(structuredClone(base));
+    await db.dayLogs.put(next);
+    result = next;
+  });
+  return result as DayLog;
 }
 
 export async function listDayLogs(): Promise<DayLog[]> {

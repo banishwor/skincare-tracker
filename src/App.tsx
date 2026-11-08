@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BlockId, DayLog, EitherChoice, Product, Settings, StepDef, TxaOverride } from './types';
 import {
-  getDayLog,
   getSettings,
   initDb,
   listDayLogs,
   listProducts,
-  saveDayLog,
+  updateDayLog,
   upsertProduct,
 } from './db/db';
 import {
@@ -14,7 +13,6 @@ import {
   catchUpCandidate,
   currentBlock,
   currentStreak,
-  emptyDayLog,
   makeDayEvaluator,
   type CatchUpCandidate,
 } from './lib/logic';
@@ -76,15 +74,23 @@ export default function App() {
     reg?.waiting?.postMessage({ type: 'SKIP_WAITING' });
   };
 
-  const mutateLog = useCallback(
-    async (date: string, fn: (log: DayLog) => DayLog) => {
-      const base = logs.get(date) ?? (await getDayLog(date)) ?? emptyDayLog(date, settings?.txaDays);
-      const next = fn(structuredClone(base));
-      await saveDayLog(next);
+  // Day-log mutations are chained through a promise queue, and each one
+  // re-reads the log from Dexie inside a transaction (updateDayLog), so a
+  // rapid tick-tick-tick — or a second open tab — composes instead of the
+  // last writer overwriting the others from a stale state snapshot.
+  const mutationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const settingsRef = useRef<Settings | null>(null);
+  settingsRef.current = settings;
+
+  const mutateLog = useCallback((date: string, fn: (log: DayLog) => DayLog) => {
+    const run = async () => {
+      const next = await updateDayLog(date, settingsRef.current?.txaDays, fn);
       setLogs((prev) => new Map(prev).set(date, next));
-    },
-    [logs, settings],
-  );
+    };
+    const queued = mutationQueueRef.current.then(run, run);
+    mutationQueueRef.current = queued.catch(() => undefined);
+    return queued;
+  }, []);
 
   const cur = settings ? currentBlock(now, settings) : null;
   const logDate = cur?.logDate ?? todayKey(now);
