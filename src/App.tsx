@@ -78,12 +78,12 @@ export default function App() {
 
   const mutateLog = useCallback(
     async (date: string, fn: (log: DayLog) => DayLog) => {
-      const base = logs.get(date) ?? (await getDayLog(date)) ?? emptyDayLog(date);
+      const base = logs.get(date) ?? (await getDayLog(date)) ?? emptyDayLog(date, settings?.txaDays);
       const next = fn(structuredClone(base));
       await saveDayLog(next);
       setLogs((prev) => new Map(prev).set(date, next));
     },
-    [logs],
+    [logs, settings],
   );
 
   const cur = settings ? currentBlock(now, settings) : null;

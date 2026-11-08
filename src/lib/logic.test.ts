@@ -11,6 +11,7 @@ import {
   fullDaysThisWeek,
   isTxaNight,
   makeDayEvaluator,
+  blockOrderError,
   pendingSteps,
   stepGateState,
   tonerProductOn,
@@ -158,6 +159,58 @@ describe('seed-driven step derivation', () => {
     expect(tonerProductOn(products, '2026-11-01')?.id).toBe('p-plum');
     expect(tonerProductOn(products, '2026-11-07')?.id).toBe('p-plum');
     expect(tonerProductOn(products, '2026-11-08')?.id).toBe('p-pha');
+  });
+});
+
+describe('TXA day snapshot', () => {
+  it("evaluation uses the log's own snapshot, not current settings", () => {
+    // Monday 2026-11-09 IS a TXA night under default settings…
+    const log = fullLog('2026-11-09');
+    delete log.blocks.night.steps['txa'];
+    log.txaDays = [2]; // …but this day's snapshot says Wednesdays only.
+    expect(txaApplies(log, '2026-11-09', settings)).toBe(false);
+    const evaluate = makeDayEvaluator(new Map([[log.date, log]]), products, settings);
+    expect(evaluate('2026-11-09')).toBe('full');
+  });
+  it('adding a TXA weekday later does not break a previously full day', () => {
+    // Wednesday 2026-11-11 is not a TXA night by default; completed without TXA.
+    const log = fullLog('2026-11-11');
+    expect(log.blocks.night.steps['txa']).toBeUndefined();
+    log.txaDays = [...settings.txaDays]; // snapshot taken at creation
+    const changed: Settings = { ...settings, txaDays: [0, 1, 2, 3, 4, 5] }; // Wed added later
+    const evaluate = makeDayEvaluator(new Map([[log.date, log]]), products, changed);
+    expect(evaluate('2026-11-11')).toBe('full');
+  });
+  it('pre-0.1.1 logs without a snapshot fall back to current settings', () => {
+    const legacy = fullLog('2026-11-11');
+    expect(legacy.txaDays).toBeUndefined();
+    expect(txaApplies(legacy, '2026-11-11', settings)).toBe(false);
+    const changed: Settings = { ...settings, txaDays: [0, 1, 2, 3, 4, 5] };
+    expect(txaApplies(legacy, '2026-11-11', changed)).toBe(true);
+    const evaluate = makeDayEvaluator(new Map([[legacy.date, legacy]]), products, settings);
+    expect(evaluate('2026-11-11')).toBe('full');
+  });
+  it('emptyDayLog snapshots a copy of the TXA days', () => {
+    const days = [0, 1];
+    const log = emptyDayLog('2026-11-08', days);
+    expect(log.txaDays).toEqual([0, 1]);
+    days.push(4);
+    expect(log.txaDays).toEqual([0, 1]); // a copy, not a reference
+    expect(emptyDayLog('2026-11-08').txaDays).toBeUndefined();
+  });
+});
+
+describe('block start validation', () => {
+  it('accepts the default strictly increasing starts', () => {
+    expect(blockOrderError(settings.blockStarts)).toBeNull();
+  });
+  it('rejects equal or reversed starts with a clear message', () => {
+    expect(blockOrderError({ morning: '12:30', backHome: '12:30', night: '17:30' }))
+      .toMatch(/Back home must start after Morning/);
+    expect(blockOrderError({ morning: '13:00', backHome: '12:30', night: '17:30' }))
+      .toMatch(/Back home must start after Morning/);
+    expect(blockOrderError({ morning: '04:00', backHome: '18:00', night: '17:30' }))
+      .toMatch(/Night must start after Back home/);
   });
 });
 

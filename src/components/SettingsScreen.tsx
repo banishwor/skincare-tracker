@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { BlockId, Settings } from '../types';
-import { BLOCK_NAMES, BLOCK_ORDER } from '../lib/logic';
+import { BLOCK_NAMES, BLOCK_ORDER, blockOrderError } from '../lib/logic';
 import { DAY_LETTERS } from '../lib/dates';
 import { exportAll, importAll, isBackupData, saveSettings } from '../db/db';
 
@@ -16,6 +16,7 @@ export default function SettingsScreen({ settings, onSaved, onImported, onBack }
   const [txaDays, setTxaDays] = useState<number[]>(settings.txaDays);
   const [starts, setStarts] = useState<Record<BlockId, string>>(settings.blockStarts);
   const [msg, setMsg] = useState('');
+  const [orderError, setOrderError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const toggleDay = (d: number) => {
@@ -23,6 +24,13 @@ export default function SettingsScreen({ settings, onSaved, onImported, onBack }
   };
 
   const handleSave = async () => {
+    const err = blockOrderError(starts);
+    if (err) {
+      setOrderError(err);
+      setMsg('');
+      return;
+    }
+    setOrderError('');
     const next: Settings = {
       userName: userName.trim() || settings.userName,
       txaDays,
@@ -116,6 +124,12 @@ export default function SettingsScreen({ settings, onSaved, onImported, onBack }
           </div>
         ))}
       </div>
+
+      {orderError && (
+        <div role="alert" style={{ color: '#d70015', fontSize: 13, fontWeight: 600, margin: '10px 4px 0', lineHeight: 1.4 }}>
+          {orderError}
+        </div>
+      )}
 
       <div style={{ marginTop: 14 }}>
         <button className="bigbtn" onClick={handleSave}>Save settings</button>

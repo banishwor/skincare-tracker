@@ -68,7 +68,8 @@ export function isTxaNight(dateKey: string, txaDays: number[]): boolean {
 export function txaApplies(log: DayLog | undefined, dateKey: string, settings: Settings): boolean {
   if (log?.txaOverride === 'used') return true;
   if (log?.txaOverride === 'skipped') return false;
-  return isTxaNight(dateKey, settings.txaDays);
+  // The day's own snapshot wins; legacy logs without one use current settings.
+  return isTxaNight(dateKey, log?.txaDays ?? settings.txaDays);
 }
 
 /* ------------------------------------------------------------------ */
@@ -423,8 +424,11 @@ export function txaScheduleText(settings: Settings): string {
   return formatDayList(settings.txaDays);
 }
 
-/** A fresh, empty day log. */
-export function emptyDayLog(date: string): DayLog {
+/**
+ * A fresh, empty day log. When `txaDays` is given it is snapshotted into
+ * the log so later Settings edits can't rewrite this day's TXA schedule.
+ */
+export function emptyDayLog(date: string, txaDays?: number[]): DayLog {
   return {
     date,
     blocks: {
@@ -433,5 +437,26 @@ export function emptyDayLog(date: string): DayLog {
       night: { steps: {} },
     },
     txaOverride: null,
+    ...(txaDays ? { txaDays: [...txaDays] } : {}),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Settings validation                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Block start times must be strictly increasing in BLOCK_ORDER —
+ * currentBlock assumes chronological order. Returns an error message
+ * for the first offending pair, or null when the order is valid.
+ */
+export function blockOrderError(starts: Record<BlockId, string>): string | null {
+  for (let i = 1; i < BLOCK_ORDER.length; i += 1) {
+    const prev = BLOCK_ORDER[i - 1]!;
+    const cur = BLOCK_ORDER[i]!;
+    if (minutesOf(starts[cur]) <= minutesOf(starts[prev])) {
+      return `${BLOCK_NAMES[cur]} must start after ${BLOCK_NAMES[prev]} (currently ${starts[cur]} vs ${starts[prev]}).`;
+    }
+  }
+  return null;
 }

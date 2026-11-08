@@ -49,6 +49,14 @@ export interface DayLog {
   date: string;
   blocks: Record<BlockId, BlockLog>;
   txaOverride: TxaOverride;
+  /**
+   * Snapshot of Settings.txaDays taken when this log was created.
+   * Day evaluation uses the snapshot, so editing TXA days in Settings
+   * never rewrites history. Absent on pre-0.1.1 logs (optional, therefore
+   * non-indexed — no Dexie schema version bump needed); evaluation then
+   * falls back to the current settings.
+   */
+  txaDays?: number[];
 }
 
 export interface StepDef {
